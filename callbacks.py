@@ -31,6 +31,7 @@ from nio import (
 )
 import logging
 import traceback
+import re
 from command_dict import CommandDict
 
 logger = logging.getLogger(__name__)
@@ -55,6 +56,7 @@ class Callbacks(object):
         self.config = config
         self.command_dict = CommandDict(config.command_dict_filepath)
         self.command_prefix = config.command_prefix
+        self.special_command = re.compile(r".*(?:jb|bug)\s?#?\d+.*", re.I)
 
     async def message(self, room, event):
         """Handle an incoming message event.
@@ -80,11 +82,12 @@ class Callbacks(object):
 
         # Process as message if in a public room without command prefix
         has_command_prefix = msg.startswith(self.command_prefix)
+        is_special_command = self.special_command.match(msg)
         # room.is_group is often a DM, but not always.
         # room.is_group does not allow room aliases
         # room.member_count > 2 ... we assume a public room
         # room.member_count <= 2 ... we assume a DM
-        if not has_command_prefix and room.member_count > 2:
+        if not has_command_prefix and not is_special_command and room.member_count > 2:
             # General message listener
             message = Message(self.client, self.store,
                               self.config, msg, room, event)
@@ -96,9 +99,16 @@ class Callbacks(object):
         if has_command_prefix:
             # Remove the command prefix
             msg = msg[len(self.command_prefix):]
+            command = Command(self.client, self.store,
+                              self.config, self.command_dict, msg, room, event)
+        else:
+            iterator = re.finditer(r"(?:jb|bug)\s?#?\d+", msg, re.I)
+            bz = []
+            for i in iterator:
+                bz.append(re.sub(r'[^\d]', '', i.group(0)))
+            command = Command(self.client, self.store, self.config, self.command_dict,
+                              "jb", room, event, bz)
 
-        command = Command(self.client, self.store,
-                          self.config, self.command_dict, msg, room, event)
         await command.process()
 
     async def invite(self, room, event):

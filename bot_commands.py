@@ -33,7 +33,7 @@ SERVER_ERROR_MSG = "Bot encountered an error. Here is the stack trace: \n"
 class Command(object):
     """Use this class for your bot commands."""
 
-    def __init__(self, client, store, config, command_dict, command, room, event):
+    def __init__(self, client, store, config, command_dict, command, room, event, args=None):
         """Set up bot commands.
 
         Arguments:
@@ -56,9 +56,12 @@ class Command(object):
         self.room = room
         self.event = event
         # self.args: list : list of arguments
-        self.args = re.findall(r'(?:[^\s,"]|"(?:\\.|[^"])*")+', self.command)[
-            1:
-        ]
+        if not args:
+            self.args = re.findall(r'(?:[^\s,"]|"(?:\\.|[^"])*")+', self.command)[
+                1:
+            ]
+        else:
+            self.args = args
         # will work for double quotes "
         # will work for 'a bb ccc "e e"' --> ['a', 'bb', 'ccc', '"e e"']
         # will not work for single quotes '
@@ -178,6 +181,16 @@ class Command(object):
         ):
             await self._os_cmd(
                 cmd="alert.sh",
+                args=self.args,
+                markdown_convert=False,
+                formatted=True,
+                code=True,
+            )
+        # react to bugzilla ticket mention (regexp matching has already been
+        # done in callbacks.py, so no need for that)
+        elif self.commandlower == "jb":
+            await self._os_cmd(
+                cmd="bugzilla.sh",
                 args=self.args,
                 markdown_convert=False,
                 formatted=True,
