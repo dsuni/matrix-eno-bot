@@ -190,11 +190,11 @@ class Command(object):
         # done in callbacks.py, so no need for that)
         elif self.commandlower == "jb":
             await self._os_cmd(
-                cmd="bugzilla.sh",
+                cmd="bugzilla.py",
                 args=self.args,
                 markdown_convert=False,
                 formatted=True,
-                code=True,
+                code=False,
             )
         # perform a backup to disk
         elif re.match("^backup$|^backup .*$|^backup.sh$", self.commandlower):
