@@ -56,7 +56,16 @@ class Callbacks(object):
         self.config = config
         self.command_dict = CommandDict(config.command_dict_filepath)
         self.command_prefix = config.command_prefix
-        self.special_command = re.compile(r".*(?:jb|bug)\s?#?\d+.*", re.I)
+
+    def _parse_bugzilla_regex(self, msg):
+        bugzilla_regex = []
+        bugzilla_regex.append(re.finditer(r"(?:jb|bug)\s?#?\d+", msg, re.I))
+        bugzilla_regex.append(re.finditer(r"https://bz.jollamobile.com/show_bug.cgi\?id=\d+", msg, re.I))
+        buglist = []
+        for iterator in bugzilla_regex:
+            for match in iterator:
+                buglist.append(re.sub(r'[^\d]', '', match.group(0)))
+        return buglist
 
     async def message(self, room, event):
         """Handle an incoming message event.
@@ -82,12 +91,12 @@ class Callbacks(object):
 
         # Process as message if in a public room without command prefix
         has_command_prefix = msg.startswith(self.command_prefix)
-        is_special_command = self.special_command.match(msg)
+        buglist = self._parse_bugzilla_regex(msg)
         # room.is_group is often a DM, but not always.
         # room.is_group does not allow room aliases
         # room.member_count > 2 ... we assume a public room
         # room.member_count <= 2 ... we assume a DM
-        if not has_command_prefix and not is_special_command and room.member_count > 2:
+        if not has_command_prefix and not buglist and room.member_count > 2:
             # General message listener
             message = Message(self.client, self.store,
                               self.config, msg, room, event)
@@ -102,12 +111,8 @@ class Callbacks(object):
             command = Command(self.client, self.store,
                               self.config, self.command_dict, msg, room, event)
         else:
-            iterator = re.finditer(r"(?:jb|bug)\s?#?\d+", msg, re.I)
-            bz = []
-            for i in iterator:
-                bz.append(re.sub(r'[^\d]', '', i.group(0)))
             command = Command(self.client, self.store, self.config, self.command_dict,
-                              "jb", room, event, bz)
+                              "jb", room, event, buglist)
 
         await command.process()
 
